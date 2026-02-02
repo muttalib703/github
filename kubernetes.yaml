@@ -1,0 +1,521 @@
+1) namespace.yml
+
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: nginx
+
+2) pod.yml
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: nginx-pod
+  namespace: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+
+3) kubectl exec -it nginx -n nginx -- bash
+4)  kubectl pods/nginx-pod -n nginx
+5)  kubectl delete pod/nginx  -n nginx
+
+4)deployment.yml
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nginx-deployment
+  namespace: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      name: naginx-dep-pod
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+        volumeMounts:
+          - mountPath: /var/www/html
+            name: my-volume
+      volumes:
+        - name: my-volume
+          persistentVolumeClaim:
+            claimName: local-pvc
+
+
+5) deployment replicas 
+ kubectl scale deployment/nginx-deployment -n nginx --replicas=7
+
+6)pods more information
+ kubectl get pods -n nginx -o wide
+
+7)old version nginx pods
+ kubectl set image deployment/nginx-deployment -n nginx nginx=nginx:1.27.3
+
+8)replicasets.yml
+
+kind: ReplicaSet
+apiVersion: apps/v1
+metadata:
+  name: nginx-replicasets
+  namespace: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      name: naginx-rep-pod
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+9)daemonsets.yml
+
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: nginx-daemonsets
+  namespace: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+
+  template:
+    metadata:
+      name: naginx-dmn-pod
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+
+10)job.yml
+
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: demo-job
+  namespace: nginx
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      name: demo-job-pod
+      labels:
+        app: batch-task
+    spec:
+      containers:
+      - name: batch-container
+        image: busybox:latest
+        command: ["sh", "-c" ,"echo hello Dosts! && sleep 10"]
+      restartPolicy: Never
+
+11) cron-job.yml
+
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: minute-backup
+  namespace: nginx
+
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          name: minute-backup
+          labels:
+            app: minute-backup
+
+        spec:
+          containers:
+          - name: backup-container
+            image: busybox
+            command:
+            - sh
+            - -c
+            - >
+              echo "Backup Started" ;
+              mkdir -p /backups &&
+              mkdir -p /demo-data &&
+              cp -r /demo-data /backups &&
+              echo "Backup Completed" ;
+            volumeMounts:
+              - name: data-volume
+                mountPath: /demo-data
+              - name: backup-volume
+                mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+            - name: data-volume
+              hostPath:
+                path: /demo-data
+                type: DirectoryOrCreate
+            - name: backup-volume
+              hostPath:
+                path: /backups
+                type: DirectoryOrCreate
+
+12) persistentVolume.yml
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: local-pv
+  namespace: nginx
+  labels:
+    app: local
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /mnt/data
+
+13)persistentVolumeClaim.yml
+
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: local-pvc
+  namespace: nginx
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: local-storage
+
+14) service.yml
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-service
+  namespace: nginx
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+15) ingress.yml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-notes-ingress
+  namespace: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - pathType: Prefix
+        path: /nginx
+        backend:
+          service:
+            name: nginx-service
+            port:
+              number: 80
+      - pathType: Prefix
+        path: /app
+        backend:
+          service:
+            name: notes-app-service
+            port:
+              number: 8000
+
+      kubectl get ing -n nginx
+ 
+
+16) namespace.yml
+ 
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: mysql
+
+17) service.yml
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: mysql-service
+  namespace: mysql
+spec:
+  clusterIP: None
+  selector:
+    app: mysql
+  ports:
+  - name: mysql
+    protocol: TCP
+    port: 3306
+    targetPort: 3306
+
+19) 
+
+watch kubectl get pods -n mysql
+
+20)
+kubectl get svc -n mysql
+
+21)
+kubectl exec -it mysql-statefulset-0 -n mysql -- bash
+  1)mysql -u root -p
+  2)passwd: root
+
+
+18) configMap.yml
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: mysql-config-map
+  namespace: mysql
+data:
+  MYSQL_DATABASE: devops
+
+19)
+
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: mysql-statefulset
+  namespace: mysql
+
+spec:
+  serviceName: mysql-service
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+
+        - name: MYSQL_DATABASE
+          valueFrom:           
+            configMapKeyRef:
+              name: mysql-config-map
+              key: MYSQL_DATADASE
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+
+  volumeClaimTemplates:i
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+
+
+
+
+
+
+
+
+23) secrets.yml
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-secret
+  namespace: mysql
+data:
+  MYSQL_PASSWORD: cm9vdAo=
+
+24) probe    (deployment ka last line)
+
+       livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+
+25) taint 
+
+enable:   kubectl taint node adm-cluster-worker prod=true:NoSchedule
+disable:  kubectl taint node adm-cluster-worker prod=true:NoSchedule-
+
+26) tolerations   (pods  ka last line)
+
+  tolerations:
+    - key: "prod"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+
+27) 
+
+ kubectl describe svc apache-service -n apache
+
+28) hpa.yml
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: apache-hpa
+  namespace: apache
+
+spec:
+  scaleTargetRef:
+    kind: Deployment
+    name: apache-deployment
+    apiVersion: apps/v1
+
+  minReplicas: 1
+  maxReplicas: 6
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target :
+          type: Utilization
+          averageUtilization: 5
+
+  kubectl run -i --tty load-generator --image=busybox -n apache /bin/bash
+
+ while true; do wget -q -0- http://apache-service.apache.svc.cluster.local ; done
+
+
+29)
+
+kind: VerticalPodAutoscaler
+apiVersion: autoscaling.k8s.io/v1
+metadata:
+  name: apache-vpa
+  namespace: apache
+
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: apache-deployment
+  updatePolicy:
+    updateMode: "Auto"
+
+
+  kubectl get vpa -n apache
+
+
+
+29) role.yml (rbac) haa yaah
+
+kind: Role
+apiVersion: rbac.authorizath.k8s.io/v1
+metadata:
+  name: apache-manager
+  namespace: apache
+rules:
+  - apiGroups: ["","apps",]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+30)serviceaccount.yml
+
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: apache-user
+  namespace: apache
+
+31) role-binding.yml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: apache-manager-rolebinding
+  namespace: apache
+
+subjects:
+- kind: User
+  name: apache-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+    kind: Role
+    name: apache-manager
+    apiGroup: rbac.authorization.k8s.io
+
+
+31) kubectl auth can-i get pods --as=apache-user -n apache
+
+32) 
+
+
+kind: Pod
+apiVersion: v1
+metadata:
+  name: init-test
+
+spec:
+  initContainers:
+  - name: init-container
+    image: busybox:latest
+    command: ["sh","-c", "echo  'Initalization started ....' sleep 10; echo 'Initalization completed.'"]
+
+  containers:
+  - name: main-container
+    image: busybox:latest
+    command: ["sh","-c", "echo 'Main container started'"]
+

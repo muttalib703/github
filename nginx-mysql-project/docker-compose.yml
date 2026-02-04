@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  php:
+    build: ./php
+    container_name: php_fpm
+    restart: always
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - mysql
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_web
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./src:/var/www/html
+    depends_on:
+      - php
+
+  prometheus1:
+    image: prom/prometheus
+    container_name: prometheus1
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9091:9090"
+
+  prometheus2:
+    image: prom/prometheus
+    container_name: prometheus2
+    restart: always
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9092:9090"
+
+  postgres:
+    image: postgres:13
+    container_name: grafana_db
+    restart: always
+    environment:
+      POSTGRES_USER: grafana
+      POSTGRES_PASSWORD: grafana_pass
+      POSTGRES_DB: grafana
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  grafana1:
+    image: grafana/grafana
+    container_name: grafana1
+    restart: always
+    environment:
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres:5432
+      - GF_DATABASE_NAME=grafana
+      - GF_DATABASE_USER=grafana
+      - GF_DATABASE_PASSWORD=grafana_pass
+    depends_on:
+      - prometheus1
+      - postgres
+
+  grafana2:
+    image: grafana/grafana
+    container_name: grafana2
+    restart: always
+    environment:
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres:5432
+      - GF_DATABASE_NAME=grafana
+      - GF_DATABASE_USER=grafana
+      - GF_DATABASE_PASSWORD=grafana_pass
+    depends_on:
+      - prometheus2
+      - postgres
+
+  mysql-exporter:
+    image: prom/mysqld-exporter
+    container_name: mysql_exporter
+    restart: always
+    environment:
+      DATA_SOURCE_NAME: "myuser:mypassword@(mysql:3306)/"
+    ports:
+      - "9104:9104"
+    depends_on:
+      - mysql
+
+  node-exporter:
+    image: prom/node-exporter
+    container_name: node_exporter
+    restart: always
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - /:/host:ro,rslave
+
+  lb:
+    image: nginx:latest
+    container_name: load_balancer
+    restart: always
+    ports:
+      - "2100:80"   # load balancer entry point
+    volumes:
+      - ./lb.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - grafana1
+      - grafana2
+
+volumes:
+  mysql_data:
+  postgres_data:
